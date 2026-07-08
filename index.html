@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro de Certificados — Laboratorio Blockchain</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #253349;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --ok: #4ade80;
+    --err: #f87171;
+    --warn: #fbbf24;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+    position: relative; /* Necesario para ubicar el logo */
+  }
+  
+  /* Nuevo estilo para UTN - LINES */
+  .brand-logo {
+    position: absolute;
+    top: 1.5rem;
+    left: 2rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .brand-logo .divider { color: var(--border); font-weight: 400; }
+  .brand-logo .lines { color: var(--accent); }
+
+  .container { max-width: 860px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 2rem; }
+  header h1 { font-size: 1.6rem; margin-bottom: .3rem; }
+  header p { color: var(--muted); font-size: .95rem; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .card h2 {
+    font-size: 1.05rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .step-num {
+    background: var(--accent);
+    color: #082f49;
+    width: 1.6rem; height: 1.6rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .85rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: .3rem; }
+  input[type="text"] {
+    width: 100%;
+    padding: .6rem .75rem;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: .95rem;
+  }
+  input[type="text"]:focus { outline: none; border-color: var(--accent); }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: end; }
+  .row > div { flex: 1; min-width: 220px; }
+  button {
+    padding: .65rem 1.3rem;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #082f49;
+    font-weight: 700;
+    font-size: .95rem;
+    cursor: pointer;
+    transition: opacity .15s;
+  }
+  button:hover { opacity: .85; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 2rem;
+    text-align: center;
+    color: var(--muted);
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .dropzone.dragover { border-color: var(--accent); background: var(--panel-2); }
+  .dropzone strong { color: var(--text); }
+  .hash-box {
+    font-family: Consolas, monospace;
+    font-size: .8rem;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: .6rem .75rem;
+    word-break: break-all;
+    color: var(--ok);
+    margin-top: .75rem;
+    display: none;
+  }
+  .badge {
+    display: inline-block;
+    padding: .2rem .6rem;
+    border-radius: 999px;
+    font-size: .78rem;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .badge.err { color: var(--err); border-color: var(--err); background: rgba(248,113,113,.08); }
+  #log {
+    font-family: Consolas, monospace;
+    font-size: .8rem;
+    background: #0b1120;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: .75rem;
+    max-height: 220px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .log-ok { color: var(--ok); }
+  .log-err { color: var(--err); }
+  .log-warn { color: var(--warn); }
+  .log-info { color: var(--muted); }
+  .mt { margin-top: 1rem; }
+  .verify-result {
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 8px;
+    display: none;
+    font-size: .9rem;
+    line-height: 1.7;
+  }
+  .verify-result.valid { display: block; background: rgba(74,222,128,.08); border: 1px solid var(--ok); }
+  .verify-result.invalid { display: block; background: rgba(248,113,113,.08); border: 1px solid var(--err); }
+  
+  /* Media queries combinados */
+  @media (max-width: 900px) { 
+    .brand-logo {
+      position: static;
+      justify-content: center;
+      margin-bottom: 2rem;
+    }
+  }
+  @media (max-width: 640px) { 
+    .grid-3 { grid-template-columns: 1fr; } 
+  }
+</style>
+</head>
+<body>
+<div class="brand-logo">
+  UTN <span class="divider">|</span> <span class="lines">LINES</span>
+</div>
+
+<div class="container">
+  <header>
+    <h1>Registro de Certificados en Blockchain</h1>
+    <p>Prueba de Concepto — Laboratorio de Blockchain · Contrato Solidity desplegado desde Remix IDE sobre Foundry (Anvil)</p>
+  </header>
+
+  <div class="card">
+    <h2><span class="step-num">1</span> Conectar al nodo local (Anvil) y al contrato</h2>
+    <div class="row">
+      <div>
+        <label for="rpcUrl">URL del nodo Anvil (la que usa Remix en "Dev - Foundry Provider")</label>
+        <input type="text" id="rpcUrl" value="http://127.0.0.1:8545">
+      </div>
+      <div>
+        <label for="contractAddress">Dirección del contrato (copiar desde Remix después del deploy)</label>
+        <input type="text" id="contractAddress" placeholder="0x...">
+      </div>
+      <button id="btnConnect">Conectar al nodo</button>
+    </div>
+    <div class="mt">
+      <span class="badge" id="walletBadge">Cuenta: no conectada</span>
+      <span class="badge" id="networkBadge">Red: —</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">2</span> Subir certificado</h2>
+    <div class="dropzone" id="dropzone">
+      <strong>Arrastrá el certificado acá</strong> o hacé clic para seleccionarlo<br>
+      <small>PDF recomendado (extrae legajo, DNI y carrera automáticamente) — también acepta imágenes u otros archivos</small>
+    </div>
+    <input type="file" id="fileInput" hidden accept=".pdf,image/*">
+    <div class="hash-box" id="hashBox"></div>
+
+    <div class="grid-3 mt">
+      <div>
+        <label for="legajo">Legajo</label>
+        <input type="text" id="legajo" placeholder="Ej: 12345">
+      </div>
+      <div>
+        <label for="dni">DNI</label>
+        <input type="text" id="dni" placeholder="Ej: 40123456">
+      </div>
+      <div>
+        <label for="carrera">Carrera</label>
+        <input type="text" id="carrera" placeholder="Ej: Ingeniería en Sistemas">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">3</span> Registrar en la blockchain</h2>
+    <button id="btnRegister" disabled>Registrar certificado</button>
+    <button id="btnVerify" class="secondary" disabled>Verificar si ya está registrado</button>
+    <div class="verify-result" id="verifyResult"></div>
+  </div>
+
+  <div class="card">
+    <h2>📋 Consola</h2>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// Configuración
+// ============================================================
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+// ABI mínima del contrato RegistroCertificados.sol
+const ABI = [
+  "function registrarCertificado(bytes32 hashArchivo, string legajo, string dni, string carrera) external",
+  "function verificarCertificado(bytes32 hashArchivo) external view returns (bool existe, string legajo, string dni, string carrera, uint256 timestamp, address emisor)",
+  "function totalCertificados() external view returns (uint256)"
+];
+
+// Estado de la aplicación
+let provider = null;
+let signer = null;
+let fileHash = null;   // "0x..." (SHA-256 del archivo, 32 bytes)
+let fileName = null;
+
+// ============================================================
+// Utilidades
+// ============================================================
+const $ = (id) => document.getElementById(id);
+
+function log(msg, type = "info") {
+  const line = document.createElement("div");
+  line.className = "log-" + type;
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  $("log").appendChild(line);
+  $("log").scrollTop = $("log").scrollHeight;
+}
+
+function getContract() {
+  const addr = $("contractAddress").value.trim();
+  if (!ethers.isAddress(addr)) throw new Error("Dirección de contrato inválida. Copiala desde Remix (Deployed Contracts).");
+  if (!signer) throw new Error("Primero conectate al nodo Anvil (Paso 1).");
+  return new ethers.Contract(addr, ABI, signer);
+}
+
+function updateButtons() {
+  const ready = fileHash && signer && $("contractAddress").value.trim();
+  $("btnRegister").disabled = !ready;
+  $("btnVerify").disabled = !ready;
+}
+
+// ============================================================
+// Paso 1: Conexión directa al nodo local de Foundry (Anvil)
+// ============================================================
+function setBadge(id, text, estado) {
+  const badge = $(id);
+  badge.textContent = text;
+  badge.classList.remove("ok", "err");
+  if (estado) badge.classList.add(estado);
+}
+
+$("btnConnect").addEventListener("click", async () => {
+  try {
+    const url = $("rpcUrl").value.trim() || "http://127.0.0.1:8545";
+    provider = new ethers.JsonRpcProvider(url);
+
+    const network = await provider.getNetwork();
+    const accounts = await provider.send("eth_accounts", []);
+    if (!accounts.length) throw new Error("El nodo no expone cuentas desbloqueadas. ¿Está corriendo 'anvil'?");
+
+    // Cuenta 0 de Anvil (la misma que Remix usa por defecto)
+    signer = await provider.getSigner(0);
+    const address = await signer.getAddress();
+    const balance = await provider.getBalance(address);
+
+    setBadge("walletBadge", `Cuenta: ${address.slice(0, 6)}...${address.slice(-4)}`, "ok");
+    setBadge("networkBadge", `Red local (chainId ${network.chainId})`, "ok");
+
+    log(`Conectado al nodo ${url} (chainId ${network.chainId})`, "ok");
+    log(`Cuenta firmante: ${address} — balance ${ethers.formatEther(balance)} ETH`, "info");
+    updateButtons();
+  } catch (e) {
+    provider = null;
+    signer = null;
+    setBadge("walletBadge", "Cuenta: sin conexión ✕", "err");
+    setBadge("networkBadge", "Red: sin conexión ✕", "err");
+    log("Error al conectar: " + (e.shortMessage || e.message), "err");
+    log("Verificá que Anvil esté corriendo (comando 'anvil') en la URL indicada.", "warn");
+    updateButtons();
+  }
+});
+
+$("contractAddress").addEventListener("input", updateButtons);
+
+// ============================================================
+// Paso 2: Carga del archivo, hash SHA-256 y extracción de datos
+// ============================================================
+const dropzone = $("dropzone");
+dropzone.addEventListener("click", () => $("fileInput").click());
+dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("dragover"); });
+dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+dropzone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropzone.classList.remove("dragover");
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+$("fileInput").addEventListener("change", (e) => {
+  if (e.target.files.length) handleFile(e.target.files[0]);
+});
+
+async function handleFile(file) {
+  fileName = file.name;
+  log(`Archivo cargado: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`, "info");
+
+  // 1) Hash SHA-256 del archivo completo
+  const buffer = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  fileHash = "0x" + Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0")).join("");
+
+  $("hashBox").style.display = "block";
+  $("hashBox").textContent = "SHA-256: " + fileHash;
+  log("Hash SHA-256 calculado: " + fileHash, "ok");
+
+  // 2) Si es PDF, intentar extraer legajo / DNI / carrera
+  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+    try {
+      await extractPdfData(buffer);
+    } catch (e) {
+      log("No se pudo extraer texto del PDF (" + e.message + "). Completá los campos a mano.", "warn");
+    }
+  } else {
+    log("El archivo no es PDF: completá legajo, DNI y carrera manualmente.", "warn");
+  }
+  updateButtons();
+}
+
+async function extractPdfData(buffer) {
+  const pdf = await pdfjsLib.getDocument({ data: buffer.slice(0) }).promise;
+  let text = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map((it) => it.str).join(" ") + "\n";
+  }
+  log(`Texto extraído del PDF (${pdf.numPages} página/s).`, "info");
+
+  const patterns = {
+    legajo:  /legajo\s*(?:n[°º.:ro]*)?\s*[:\-]?\s*([0-9][0-9./-]*)/i,
+    dni:     /d\.?\s*n\.?\s*i\.?\s*(?:n[°º.:ro]*)?\s*[:\-]?\s*([0-9][0-9.]*)/i,
+    carrera: /carrera\s*[:\-]?\s*([^\n,;]{3,80})/i
+  };
+
+  let found = 0;
+  for (const [campo, re] of Object.entries(patterns)) {
+    const m = text.match(re);
+    if (m) {
+      let valor = m[1].trim();
+      if (campo === "dni") valor = valor.replace(/\./g, "");
+      $(campo).value = valor;
+      log(`Detectado ${campo}: ${valor}`, "ok");
+      found++;
+    }
+  }
+  if (found === 0) {
+    log("No se detectaron legajo/DNI/carrera en el PDF. Completá los campos a mano.", "warn");
+  }
+}
+
+// ============================================================
+// Paso 3: Registrar en el contrato
+// ============================================================
+$("btnRegister").addEventListener("click", async () => {
+  try {
+    const legajo = $("legajo").value.trim();
+    const dni = $("dni").value.trim();
+    const carrera = $("carrera").value.trim();
+    if (!legajo || !dni || !carrera) {
+      log("Completá legajo, DNI y carrera antes de registrar.", "warn");
+      return;
+    }
+    const contract = getContract();
+
+    log(`Enviando transacción: registrarCertificado(${fileHash.slice(0, 14)}..., "${legajo}", "${dni}", "${carrera}")`, "info");
+    $("btnRegister").disabled = true;
+
+    const tx = await contract.registrarCertificado(fileHash, legajo, dni, carrera);
+    log("Transacción enviada: " + tx.hash + " — esperando confirmación...", "info");
+
+    const receipt = await tx.wait();
+    log(`✔ Certificado registrado en el bloque ${receipt.blockNumber}. Gas usado: ${receipt.gasUsed}`, "ok");
+
+    const total = await contract.totalCertificados();
+    log(`Total de certificados en el contrato: ${total}`, "info");
+  } catch (e) {
+    const msg = e.reason || e.shortMessage || e.message;
+    log("Error al registrar: " + msg, "err");
+  } finally {
+    updateButtons();
+  }
+});
+
+// ============================================================
+// Verificación
+// ============================================================
+$("btnVerify").addEventListener("click", async () => {
+  try {
+    const contract = getContract();
+    log("Consultando verificarCertificado(" + fileHash.slice(0, 14) + "...) ...", "info");
+    const [existe, legajo, dni, carrera, timestamp, emisor] =
+      await contract.verificarCertificado(fileHash);
+
+    const box = $("verifyResult");
+    if (existe) {
+      const fecha = new Date(Number(timestamp) * 1000).toLocaleString();
+      box.className = "verify-result valid";
+      box.innerHTML = `✅ <strong>Certificado válido</strong> — "${fileName}"<br>
+        Legajo: <strong>${legajo}</strong> · DNI: <strong>${dni}</strong> · Carrera: <strong>${carrera}</strong><br>
+        Registrado el ${fecha} por ${emisor}`;
+      log("El certificado ESTÁ registrado en la blockchain.", "ok");
+    } else {
+      box.className = "verify-result invalid";
+      box.innerHTML = `❌ <strong>No registrado</strong> — el hash de "${fileName}" no figura en el contrato.
+        El archivo no fue registrado o fue modificado (cualquier cambio altera el hash).`;
+      log("El certificado NO está registrado.", "warn");
+    }
+  } catch (e) {
+    log("Error al verificar: " + (e.reason || e.shortMessage || e.message), "err");
+  }
+});
+
+log("Página lista. Levantá 'anvil', desplegá el contrato desde Remix (Dev - Foundry Provider) y pegá su dirección.", "info");
+</script>
+</body>
+</html>
