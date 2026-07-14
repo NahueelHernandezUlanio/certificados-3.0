@@ -23,7 +23,7 @@ contract RegistroCertificados {
     bytes32[] private listaHashes;
 
     event CertificadoRegistrado(
-        bytes32 indexed hashArchivo,
+        bytes32 indexed hashArchivo, //indexed para buscar en un futuro 
         string legajo,
         string dni,
         string carrera,
