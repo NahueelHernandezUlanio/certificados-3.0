@@ -57,7 +57,7 @@ python -m http.server 8000
 npx serve .
 ```
 
-Abrí [http://localhost:8000](http://localhost:8000).
+Abrir [http://localhost:8000](http://localhost:8000).
 
 ### 4. Registrar un certificado
 
@@ -69,10 +69,3 @@ Abrí [http://localhost:8000](http://localhost:8000).
 También podés verificar directo desde Remix: en *Deployed Contracts*, llamá a `verificarCertificado` pegando el hash que muestra la página.
 
 > ⚠️ Anvil no persiste estado: si cerrás la terminal donde corre `anvil`, se pierden el contrato y los registros. Al reiniciarlo hay que volver a desplegar desde Remix (podés arrancarlo con `anvil --state estado.json` para guardar/restaurar el estado entre sesiones).
-
-## Notas de diseño (para el informe del laboratorio)
-
-- **On-chain solo el hash**: guardar el PDF en la cadena sería carísimo y expondría datos personales; el hash (32 bytes) prueba integridad y existencia sin revelar el contenido.
-- **Datos personales en claro (legajo/DNI)**: aceptable para una PoC en un nodo local. En producción convendría guardar solo `keccak256(legajo|dni)` para no publicar datos personales en una cadena pública.
-- **Sin control de acceso**: cualquiera puede registrar. Una versión productiva agregaría `onlyOwner`/roles (`AccessControl` de OpenZeppelin) para que solo la institución emita.
-- **Firma sin billetera**: en el nodo de desarrollo las cuentas están desbloqueadas y la página usa `eth_sendTransaction` directo. En una red real esto no existe: haría falta una billetera (MetaMask) o un backend que custodie la clave.
